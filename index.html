@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Average monthly arrests by charge group</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+
+<style>
+  body {
+    margin: 0;
+    font-family: Heebo, Arial, sans-serif;
+    color: #202020;
+    background: #ffffff;
+  }
+
+  .graphic-wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 24px 16px 32px 16px;
+  }
+
+  .kicker {
+    color: #f26f21;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  h1 {
+    margin: 0 0 8px 0;
+    color: #103b63;
+    font-size: 36px;
+    line-height: 1.08;
+    font-weight: 800;
+  }
+
+  .dek {
+    max-width: 720px;
+    color: #666666;
+    font-size: 16px;
+    line-height: 1.45;
+    margin: 0 0 20px 0;
+  }
+
+  .chart-card {
+    border-top: 5px solid #f26f21;
+    background: #f7f7f4;
+    padding: 18px 16px 12px 16px;
+  }
+
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  .axis-label {
+    font-size: 12px;
+    font-weight: 700;
+    fill: #666666;
+  }
+
+  .category-label {
+    font-size: 13px;
+    font-weight: 700;
+    fill: #202020;
+  }
+
+  .change-label {
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .small-label {
+    font-size: 11px;
+    font-weight: 600;
+    fill: #666666;
+  }
+
+  .zero-line {
+    stroke: #777777;
+    stroke-width: 1.25px;
+  }
+
+  .grid-line {
+    stroke: #d9d9d2;
+    stroke-width: 1px;
+  }
+
+  .change-line {
+    stroke-width: 5px;
+    stroke-linecap: round;
+  }
+
+  .dot {
+    stroke: #ffffff;
+    stroke-width: 2px;
+  }
+
+  .note {
+    margin-top: 14px;
+    color: #666666;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  @media screen and (max-width: 640px) {
+    h1 {
+      font-size: 28px;
+    }
+
+    .chart-card {
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    .category-label {
+      font-size: 12px;
+    }
+
+    .change-label {
+      font-size: 12px;
+    }
+  }
+</style>
+</head>
+
+<body>
+<main class="graphic-wrap">
+  <div class="kicker">Wisconsin Watch analysis</div>
+  <h1>Where average monthly arrests changed most</h1>
+  <p class="dek">
+    Among people classified as convicted criminals, some charge categories saw larger average monthly increases after Jan. 20, 2025, while others declined.
+  </p>
+
+  <section class="chart-card">
+    <div id="chart"></div>
+    <p class="note">
+      Notes: Counts are average monthly unique arrestees. Each arrestee is assigned to one primary charge category per month using the priority logic from the R workflow. The visualization is built from the <code>admin_monthly_avg</code> dataset. Change is calculated as the Trump-period monthly average minus the Biden-period monthly average.
+    </p>
+  </section>
+</main>
+
+<script>
+(function() {
+  var COLOR_ORANGE = "#f26f21";
+  var COLOR_BLUE = "#005eb8";
+  var COLOR_NEUTRAL = "#777777";
+  var COLOR_WHITE = "#ffffff";
+  var COLOR_GRID = "#d9d9d2";
+
+  var sampleData = [
+    { charge_group: "Sex Crimes", administration: "Biden", avg_monthly_arrests: 2.4 },
+    { charge_group: "Sex Crimes", administration: "Trump", avg_monthly_arrests: 1.6 },
+    { charge_group: "Drugs - Non-Marijuana", administration: "Biden", avg_monthly_arrests: 3.1 },
+    { charge_group: "Drugs - Non-Marijuana", administration: "Trump", avg_monthly_arrests: 4.2 },
+    { charge_group: "Aggravated Assault and Homicide", administration: "Biden", avg_monthly_arrests: 1.0 },
+    { charge_group: "Aggravated Assault and Homicide", administration: "Trump", avg_monthly_arrests: 0.7 },
+    { charge_group: "DUI", administration: "Biden", avg_monthly_arrests: 1.4 },
+    { charge_group: "DUI", administration: "Trump", avg_monthly_arrests: 2.8 },
+    { charge_group: "Traffic Offense", administration: "Biden", avg_monthly_arrests: 1.2 },
+    { charge_group: "Traffic Offense", administration: "Trump", avg_monthly_arrests: 2.3 },
+    { charge_group: "Marijuana - Possession", administration: "Biden", avg_monthly_arrests: 0.9 },
+    { charge_group: "Marijuana - Possession", administration: "Trump", avg_monthly_arrests: 1.1 },
+    { charge_group: "Other", administration: "Biden", avg_monthly_arrests: 8.1 },
+    { charge_group: "Other", administration: "Trump", avg_monthly_arrests: 8.4 }
+  ];
+
+  function formatNumber(value) {
+    return d3.format(".1f")(value);
+  }
+
+  function formatChange(value) {
+    var sign = value > 0 ? "+" : "";
+    return sign + formatNumber(value) + "/mo.";
+  }
+
+  function prepareData(rows) {
+    var byCategory = {};
+    var output = [];
+
+    rows.forEach(function(d) {
+      var category = d.charge_group;
+      var administration = d.administration;
+      var value = Number(d.avg_monthly_arrests);
+
+      if (!byCategory[category]) {
+        byCategory[category] = {
+          charge_group: category,
+          Biden: 0,
+          Trump: 0
+        };
+      }
+
+      byCategory[category][administration] = value;
+    });
+
+    Object.keys(byCategory).forEach(function(category) {
+      var d = byCategory[category];
+      d.change = d.Trump - d.Biden;
+      d.abs_change = Math.abs(d.change);
+      d.direction = "neutral";
+
+      if (d.change > 0.05) {
+        d.direction = "increase";
+      } else if (d.change < -0.05) {
+        d.direction = "decrease";
+      }
+
+      output.push(d);
+    });
+
+    output.sort(function(a, b) {
+      return b.abs_change - a.abs_change;
+    });
+
+    return output;
+  }
+
+  function render(rows) {
+    var chartData = prepareData(rows);
+    var container = d3.select("#chart");
+    container.selectAll("*").remove();
+
+    var width = container.node().clientWidth;
+    var isMobile = width < 640;
+    var margin = {
+      top: 36,
+      right: isMobile ? 46 : 104,
+      bottom: 42,
+      left: isMobile ? 150 : 260
+    };
+    var rowHeight = isMobile ? 54 : 48;
+    var height = margin.top + margin.bottom + chartData.length * rowHeight;
+    var innerWidth = width - margin.left - margin.right;
+    var innerHeight = height - margin.top - margin.bottom;
+
+    var maxAbsChange = d3.max(chartData, function(d) { return Math.abs(d.change); });
+    if (!maxAbsChange || maxAbsChange < 1) {
+      maxAbsChange = 1;
+    }
+
+    var x = d3.scaleLinear()
+      .domain([-maxAbsChange * 1.15, maxAbsChange * 1.15])
+      .range([0, innerWidth]);
+
+    var y = d3.scaleBand()
+      .domain(chartData.map(function(d) { return d.charge_group; }))
+      .range([0, innerHeight])
+      .padding(0.42);
+
+    var svg = container.append("svg")
+      .attr("viewBox", "0 0 " + width + " " + height)
+      .attr("role", "img")
+      .attr("aria-label", "Lollipop chart showing change in average monthly arrests by charge group.");
+
+    var g = svg.append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    var ticks = x.ticks(isMobile ? 3 : 5);
+
+    g.selectAll("line.grid-line")
+      .data(ticks)
+      .enter()
+      .append("line")
+      .attr("class", "grid-line")
+      .attr("x1", function(d) { return x(d); })
+      .attr("x2", function(d) { return x(d); })
+      .attr("y1", 0)
+      .attr("y2", innerHeight)
+      .attr("stroke", COLOR_GRID);
+
+    g.append("line")
+      .attr("class", "zero-line")
+      .attr("x1", x(0))
+      .attr("x2", x(0))
+      .attr("y1", -8)
+      .attr("y2", innerHeight + 8);
+
+    g.selectAll("text.axis-label")
+      .data(ticks)
+      .enter()
+      .append("text")
+      .attr("class", "axis-label")
+      .attr("x", function(d) { return x(d); })
+      .attr("y", innerHeight + 28)
+      .attr("text-anchor", "middle")
+      .text(function(d) { return formatNumber(d); });
+
+    g.append("text")
+      .attr("class", "axis-label")
+      .attr("x", x(0))
+      .attr("y", -16)
+      .attr("text-anchor", "middle")
+      .text("Change in average monthly arrests");
+
+    g.selectAll("text.category-label")
+      .data(chartData)
+      .enter()
+      .append("text")
+      .attr("class", "category-label")
+      .attr("x", -14)
+      .attr("y", function(d) { return y(d.charge_group) + y.bandwidth() / 2; })
+      .attr("dy", "0.35em")
+      .attr("text-anchor", "end")
+      .text(function(d) {
+        if (isMobile && d.charge_group === "Aggravated Assault and Homicide") {
+          return "Agg. assault and homicide";
+        }
+        return d.charge_group;
+      });
+
+    var row = g.selectAll("g.row")
+      .data(chartData)
+      .enter()
+      .append("g")
+      .attr("class", "row");
+
+    row.append("line")
+      .attr("class", "change-line")
+      .attr("x1", x(0))
+      .attr("x2", function(d) { return x(d.change); })
+      .attr("y1", function(d) { return y(d.charge_group) + y.bandwidth() / 2; })
+      .attr("y2", function(d) { return y(d.charge_group) + y.bandwidth() / 2; })
+      .attr("stroke", function(d) {
+        if (d.direction === "increase") return COLOR_ORANGE;
+        if (d.direction === "decrease") return COLOR_BLUE;
+        return COLOR_NEUTRAL;
+      });
+
+    row.append("circle")
+      .attr("class", "dot")
+      .attr("cx", function(d) { return x(d.change); })
+      .attr("cy", function(d) { return y(d.charge_group) + y.bandwidth() / 2; })
+      .attr("r", 7)
+      .attr("fill", function(d) {
+        if (d.direction === "increase") return COLOR_ORANGE;
+        if (d.direction === "decrease") return COLOR_BLUE;
+        return COLOR_NEUTRAL;
+      })
+      .attr("stroke", COLOR_WHITE);
+
+    row.append("text")
+      .attr("class", "change-label")
+      .attr("x", function(d) {
+        return x(d.change) + (d.change >= 0 ? 11 : -11);
+      })
+      .attr("y", function(d) { return y(d.charge_group) + y.bandwidth() / 2; })
+      .attr("dy", "0.35em")
+      .attr("text-anchor", function(d) { return d.change >= 0 ? "start" : "end"; })
+      .attr("fill", function(d) {
+        if (d.direction === "increase") return COLOR_ORANGE;
+        if (d.direction === "decrease") return COLOR_BLUE;
+        return COLOR_NEUTRAL;
+      })
+      .text(function(d) {
+        return formatChange(d.change) + " (Trump: " + formatNumber(d.Trump) + ")";
+      });
+
+    row.append("text")
+      .attr("class", "small-label")
+      .attr("x", x(0) - 12)
+      .attr("y", function(d) { return y(d.charge_group) + y.bandwidth() / 2; })
+      .attr("dy", "0.35em")
+      .attr("text-anchor", "end")
+      .text(function(d) {
+        return "Biden: " + formatNumber(d.Biden);
+      });
+
+    
+  }
+
+  function loadCsvOrSample() {
+    d3.csv("admin_monthly_avg.csv", function(d) {
+      return {
+        charge_group: d.charge_group,
+        administration: d.administration,
+        avg_monthly_arrests: Number(d.avg_monthly_arrests)
+      };
+    }).then(function(rows) {
+      if (rows && rows.length > 0) {
+        render(rows);
+      } else {
+        render(sampleData);
+      }
+    }).catch(function() {
+      render(sampleData);
+    });
+  }
+
+  loadCsvOrSample();
+
+  var resizeTimer;
+  window.addEventListener("resize", function() {
+    window.clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(function() {
+      loadCsvOrSample();
+    }, 150);
+  });
+}());
+</script>
+</body>
+</html>
