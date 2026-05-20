@@ -1,0 +1,17 @@
+administration,charge_group,avg_monthly_arrests,total_arrests,months_observed
+Biden,Aggravated Assault and Homicide,1.8636363636363635,41,22
+Biden,DUI,2.3043478260869565,53,23
+Biden,Drugs - Non-Marijuana,4.384615384615385,114,26
+Biden,Marijuana,1.3333333333333333,12,9
+Biden,Other,8.892857142857142,249,28
+Biden,Sex Crimes,3.5925925925925926,97,27
+Biden,Traffic Offense,1.84,46,25
+Biden,Weapons Offenses,1.2,18,15
+Trump,Aggravated Assault and Homicide,2.1538461538461537,28,13
+Trump,DUI,7.466666666666667,112,15
+Trump,Drugs - Non-Marijuana,8.714285714285714,122,14
+Trump,Marijuana,1.3846153846153846,18,13
+Trump,Other,20.066666666666666,301,15
+Trump,Sex Crimes,5,65,13
+Trump,Traffic Offense,6.785714285714286,95,14
+Trump,Weapons Offenses,1.7777777777777777,16,9
