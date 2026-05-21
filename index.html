@@ -153,7 +153,7 @@
     .category-label,
     .change-label,
     .small-label {
-      font-size: 11px;
+      font-size: 10px;
     }
   }
 </style>
@@ -336,9 +336,9 @@
 
     var margin = {
       top: 36,
-      right: isMobile ? 64 : 124,
+      right: isMobile ? 28 : 124,
       bottom: 42,
-      left: isMobile ? 150 : 260
+      left: isMobile ? 118 : 260
     };
 
     var rowHeight = isMobile ? 54 : 48;
@@ -497,7 +497,7 @@
     row.append("text")
       .attr("class", "small-label")
       .attr("x", function(d) {
-        return x(d.change) + (d.change >= 0 ? 74 : -74);
+        return x(d.change) + (d.change >= 0 ? 56 : -56);
       })
       .attr("y", function(d) {
         return y(d.charge_group) + y.bandwidth() / 2;
