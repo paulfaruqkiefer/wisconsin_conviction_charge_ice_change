@@ -71,7 +71,7 @@
     display: block;
     width: 100%;
     height: auto;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .axis-label {
@@ -332,13 +332,13 @@
     }
 
     var width = container.node().clientWidth;
-    var isMobile = width < 640;
+    var isMobile = width < 760;
 
     var margin = {
       top: 36,
-      right: isMobile ? 12 : 124,
+      right: isMobile ? 44 : 124,
       bottom: 42,
-      left: isMobile ? 90 : 260
+      left: isMobile ? 112 : 260
     };
 
     var rowHeight = isMobile ? 54 : 48;
@@ -355,7 +355,7 @@
     }
 
     var x = d3.scaleLinear()
-      .domain([-maxAbsChange * 1.15, maxAbsChange * 1.15])
+      .domain(isMobile ? [0, maxAbsChange * 1.15] : [-maxAbsChange * 1.15, maxAbsChange * 1.15])
       .range([0, innerWidth]);
 
     var y = d3.scaleBand()
@@ -436,7 +436,7 @@
     row.append("line")
       .attr("class", "change-line")
       .attr("x1", x(0))
-      .attr("x2", function(d) { return x(d.change); })
+      .attr("x2", function(d) { return x(Math.abs(d.change)); })
       .attr("y1", function(d) {
         return y(d.charge_group) + y.bandwidth() / 2;
       })
@@ -451,7 +451,9 @@
 
     row.append("circle")
       .attr("class", "dot")
-      .attr("cx", function(d) { return x(d.change); })
+      .attr("cx", function(d) {
+          return x(isMobile ? Math.abs(d.change) : d.change);
+        })
       .attr("cy", function(d) {
         return y(d.charge_group) + y.bandwidth() / 2;
       })
@@ -480,7 +482,7 @@
     row.append("text")
       .attr("class", "change-label")
       .attr("x", function(d) {
-        return x(d.change) + (d.change >= 0 ? 11 : -11);
+        return x(isMobile ? Math.abs(d.change) : d.change) + 11;
       })
       .attr("y", function(d) {
         return y(d.charge_group) + y.bandwidth() / 2;
