@@ -80,9 +80,9 @@
   }
 
   .small-label {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
-    fill: #666666;
+    fill: #555555;
   }
 
   .zero-line {
@@ -335,37 +335,46 @@
       .attr("stroke", COLOR_WHITE);
 
     row.append("text")
-      .attr("class", "change-label")
-      .attr("x", function(d) {
-        return x(d.change) + (d.change >= 0 ? 11 : -11);
-      })
-      .attr("y", function(d) {
-        return y(d.charge_group) + y.bandwidth() / 2;
-      })
-      .attr("dy", "0.35em")
-      .attr("text-anchor", function(d) {
-        return d.change >= 0 ? "start" : "end";
-      })
-      .attr("fill", function(d) {
-        if (d.direction === "increase") return COLOR_ORANGE;
-        if (d.direction === "decrease") return COLOR_BLUE;
-        return COLOR_NEUTRAL;
-      })
-      .text(function(d) {
-        return formatChange(d.change) + " (Trump: " + formatNumber(d.Trump) + ")";
-      });
-
-    row.append("text")
-      .attr("class", "small-label")
-      .attr("x", x(0) - 12)
-      .attr("y", function(d) {
-        return y(d.charge_group) + y.bandwidth() / 2;
-      })
-      .attr("dy", "0.35em")
-      .attr("text-anchor", "end")
-      .text(function(d) {
-        return "Biden: " + formatNumber(d.Biden);
-      });
+    .attr("class", "change-label")
+    .attr("x", function(d) {
+      return x(d.change) + (d.change >= 0 ? 11 : -11);
+    })
+    .attr("y", function(d) {
+      return y(d.charge_group) + y.bandwidth() / 2;
+    })
+    .attr("dy", "0.35em")
+    .attr("text-anchor", function(d) {
+      return d.change >= 0 ? "start" : "end";
+    })
+    .attr("fill", function(d) {
+      if (d.direction === "increase") return COLOR_ORANGE;
+      if (d.direction === "decrease") return COLOR_BLUE;
+      return COLOR_NEUTRAL;
+    })
+    .text(function(d) {
+      return formatChange(d.change);
+    });
+  
+  row.append("text")
+    .attr("class", "small-label")
+    .attr("x", function(d) {
+      return d.change >= 0
+        ? x(d.change) + 11
+        : x(d.change) - 11;
+    })
+    .attr("y", function(d) {
+      return y(d.charge_group) + y.bandwidth() / 2 + 16;
+    })
+    .attr("text-anchor", function(d) {
+      return d.change >= 0 ? "start" : "end";
+    })
+    .text(function(d) {
+      return "(Biden: " +
+        formatNumber(d.Biden) +
+        ", Trump: " +
+        formatNumber(d.Trump) +
+        ")";
+    });
   }
 
   function loadCsv() {
