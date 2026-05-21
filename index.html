@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Average monthly arrests by charge group</title>
+<title>Arrests by charge group</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,15 +24,6 @@
     padding: 24px 16px 32px 16px;
   }
 
-  .kicker {
-    color: #f26f21;
-    font-size: 13px;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-
   h1 {
     margin: 0 0 8px 0;
     color: #103b63;
@@ -42,7 +33,7 @@
   }
 
   .dek {
-    max-width: 720px;
+    max-width: 760px;
     color: #666666;
     font-size: 16px;
     line-height: 1.45;
@@ -53,6 +44,27 @@
     border-top: 5px solid #f26f21;
     background: #f7f7f4;
     padding: 18px 16px 12px 16px;
+  }
+
+  .chart-title {
+    margin: 0 0 6px 0;
+    color: #103b63;
+    font-size: 19px;
+    line-height: 1.2;
+    font-weight: 800;
+  }
+
+  .chart-subtitle {
+    margin: 0 0 10px 0;
+    color: #666666;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .chart-divider {
+    height: 1px;
+    background: #d9d9d2;
+    margin: 20px 0 18px 0;
   }
 
   svg {
@@ -85,6 +97,18 @@
     fill: #555555;
   }
 
+  .bar-label {
+    font-size: 14px;
+    font-weight: 800;
+    fill: #202020;
+  }
+
+  .bar-value {
+    font-size: 14px;
+    font-weight: 800;
+    fill: #202020;
+  }
+
   .zero-line {
     stroke: #777777;
     stroke-width: 1.25px;
@@ -112,6 +136,10 @@
     line-height: 1.35;
   }
 
+  .note a {
+    color: #005eb8;
+  }
+
   @media screen and (max-width: 640px) {
     h1 {
       font-size: 28px;
@@ -123,8 +151,9 @@
     }
 
     .category-label,
-    .change-label {
-      font-size: 12px;
+    .change-label,
+    .small-label {
+      font-size: 11px;
     }
   }
 </style>
@@ -132,18 +161,28 @@
 
 <body>
 <main class="graphic-wrap">
-  <h1>ICE has increased monthly arrests of immigrants with prior convictions in Wisconsin since President Trump returned to office.</h1>
+  <h1>ICE has increased arrests of immigrants with prior convictions in Wisconsin since President Trump returned to office.</h1>
   <p class="dek">
     Those with prior DUI, traffic offense or drug convictions account for large shares of the increase. Wisconsin immigration attorneys say federal authorities appear more willing to start deportation proceedings for immigrants with criminal records who would not have been priority targets in years past.
   </p>
 
   <section class="chart-card">
-    <div id="chart"></div>
+    <h2 class="chart-title">Total arrests in comparable one-year periods</h2>
+    <p class="chart-subtitle">Final 365 days before Jan. 20, 2025, compared with the first 365 days beginning Jan. 20, 2025.</p>
+    <div id="overall-chart"></div>
+
+    <div class="chart-divider"></div>
+
+    <h2 class="chart-title">Change by primary charge category</h2>
+    <p class="chart-subtitle">Trump-period count minus Biden-period count.</p>
+    <div id="change-chart"></div>
+
     <p class="note">
-      Notes: Counts are average monthly unique arrestees. Each arrestee is assigned to one primary charge category per month. Change is calculated as the Trump-period monthly average minus the Biden-period monthly average. Counts reflect charges listed in DHS detention records for immigrants arrested in Wisconsin as indicated by DHS apprehension records. Not all immigrants arrested in Wisconsin appear in detention records, so monthly average arrest figures are an undercount.
+      Notes: Counts are unique arrestees with prior convictions. Each arrestee is assigned to one primary charge category within each 365-day period. Counts reflect charges listed in DHS detention records for immigrants arrested in Wisconsin as indicated by DHS apprehension records. Not all immigrants arrested in Wisconsin appear in detention records, so figures are an undercount.
     </p>
     <p class="note">
       Data source: <a href="https://deportationdata.org/docs/ice.html">Deportation Data Project</a> | Analysis by Paul Kiefer for Wisconsin Watch
+    </p>
   </section>
 </main>
 
@@ -155,21 +194,24 @@
   var COLOR_WHITE = "#ffffff";
   var COLOR_GRID = "#d9d9d2";
 
-  function formatNumber(value) {
-    return d3.format(".1f")(value);
+  var BIDEN_COL = "Biden final 365 days";
+  var TRUMP_COL = "Trump first 365 days";
+
+  function formatCount(value) {
+    return d3.format(",")(value);
   }
 
   function formatChange(value) {
     var sign = value > 0 ? "+" : "";
-    return sign + formatNumber(value) + "/mo.";
+    return sign + formatCount(value);
   }
 
   function prepareData(rows) {
     return rows
       .map(function(d) {
         var chargeGroup = d.charge_group ? String(d.charge_group).trim() : "";
-        var biden = Number(d.Biden);
-        var trump = Number(d.Trump);
+        var biden = Number(d[BIDEN_COL]);
+        var trump = Number(d[TRUMP_COL]);
         var rawChange = Number(d.raw_change);
 
         return {
@@ -178,8 +220,8 @@
           Trump: trump,
           change: rawChange,
           abs_change: Math.abs(rawChange),
-          direction: rawChange > 0.05 ? "increase" :
-            rawChange < -0.05 ? "decrease" : "neutral"
+          direction: rawChange > 0 ? "increase" :
+            rawChange < 0 ? "decrease" : "neutral"
         };
       })
       .filter(function(d) {
@@ -193,14 +235,98 @@
       });
   }
 
-  function render(rows) {
+  function renderOverall(rows) {
+    var data = prepareData(rows);
+
+    var totals = [
+      {
+        label: "Biden final 365 days",
+        value: d3.sum(data, function(d) { return d.Biden; }),
+        color: COLOR_BLUE
+      },
+      {
+        label: "Trump first 365 days",
+        value: d3.sum(data, function(d) { return d.Trump; }),
+        color: COLOR_ORANGE
+      }
+    ];
+
+    var container = d3.select("#overall-chart");
+    container.selectAll("*").remove();
+
+    var width = container.node().clientWidth;
+    var isMobile = width < 640;
+
+    var margin = {
+      top: 14,
+      right: isMobile ? 76 : 110,
+      bottom: 28,
+      left: isMobile ? 142 : 190
+    };
+
+    var rowHeight = 42;
+    var height = margin.top + margin.bottom + totals.length * rowHeight;
+    var innerWidth = width - margin.left - margin.right;
+    var innerHeight = height - margin.top - margin.bottom;
+
+    var x = d3.scaleLinear()
+      .domain([0, d3.max(totals, function(d) { return d.value; }) * 1.08])
+      .range([0, innerWidth]);
+
+    var y = d3.scaleBand()
+      .domain(totals.map(function(d) { return d.label; }))
+      .range([0, innerHeight])
+      .padding(0.35);
+
+    var svg = container.append("svg")
+      .attr("viewBox", "0 0 " + width + " " + height)
+      .attr("role", "img")
+      .attr("aria-label", "Horizontal bar chart comparing total arrests in the Biden and Trump periods.");
+
+    var g = svg.append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    g.selectAll("text.bar-label")
+      .data(totals)
+      .enter()
+      .append("text")
+      .attr("class", "bar-label")
+      .attr("x", -12)
+      .attr("y", function(d) { return y(d.label) + y.bandwidth() / 2; })
+      .attr("dy", "0.35em")
+      .attr("text-anchor", "end")
+      .text(function(d) { return d.label; });
+
+    g.selectAll("rect")
+      .data(totals)
+      .enter()
+      .append("rect")
+      .attr("x", 0)
+      .attr("y", function(d) { return y(d.label); })
+      .attr("width", function(d) { return x(d.value); })
+      .attr("height", y.bandwidth())
+      .attr("fill", function(d) { return d.color; });
+
+    g.selectAll("text.bar-value")
+      .data(totals)
+      .enter()
+      .append("text")
+      .attr("class", "bar-value")
+      .attr("x", function(d) { return x(d.value) + 8; })
+      .attr("y", function(d) { return y(d.label) + y.bandwidth() / 2; })
+      .attr("dy", "0.35em")
+      .attr("text-anchor", "start")
+      .text(function(d) { return formatCount(d.value); });
+  }
+
+  function renderChange(rows) {
     var chartData = prepareData(rows);
-    var container = d3.select("#chart");
+    var container = d3.select("#change-chart");
     container.selectAll("*").remove();
 
     if (!chartData.length) {
       container.html(
-        "<p style='color:#b00020;font-weight:700;'>No usable rows found in admin_monthly_change.csv.</p>"
+        "<p style='color:#b00020;font-weight:700;'>No usable rows found in charge_365_change.csv.</p>"
       );
       return;
     }
@@ -210,7 +336,7 @@
 
     var margin = {
       top: 36,
-      right: isMobile ? 46 : 104,
+      right: isMobile ? 64 : 124,
       bottom: 42,
       left: isMobile ? 150 : 260
     };
@@ -240,7 +366,7 @@
     var svg = container.append("svg")
       .attr("viewBox", "0 0 " + width + " " + height)
       .attr("role", "img")
-      .attr("aria-label", "Lollipop chart showing change in average monthly arrests by charge group.");
+      .attr("aria-label", "Lollipop chart showing change in arrests by charge group.");
 
     var g = svg.append("g")
       .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
@@ -272,14 +398,14 @@
       .attr("x", function(d) { return x(d); })
       .attr("y", innerHeight + 28)
       .attr("text-anchor", "middle")
-      .text(function(d) { return formatNumber(d); });
+      .text(function(d) { return formatCount(d); });
 
     g.append("text")
       .attr("class", "axis-label")
       .attr("x", x(0))
       .attr("y", -16)
       .attr("text-anchor", "middle")
-      .text("Change in average monthly arrests");
+      .text("Change in arrests");
 
     g.selectAll("text.category-label")
       .data(chartData)
@@ -336,71 +462,72 @@
       .attr("stroke", COLOR_WHITE);
 
     row.append("text")
-  .attr("class", "small-label")
-  .attr("x", x(0) - 12)
-  .attr("y", function(d) {
-    return y(d.charge_group) + y.bandwidth() / 2;
-  })
-  .attr("dy", "0.35em")
-  .attr("text-anchor", "end")
-  .text(function(d) {
-    return "(Biden: " + formatNumber(d.Biden) + ")";
-  });
+      .attr("class", "small-label")
+      .attr("x", x(0) - 12)
+      .attr("y", function(d) {
+        return y(d.charge_group) + y.bandwidth() / 2;
+      })
+      .attr("dy", "0.35em")
+      .attr("text-anchor", "end")
+      .text(function(d) {
+        return "(Biden: " + formatCount(d.Biden) + ")";
+      });
 
-row.append("text")
-  .attr("class", "change-label")
-  .attr("x", function(d) {
-    return x(d.change) + (d.change >= 0 ? 11 : -11);
-  })
-  .attr("y", function(d) {
-    return y(d.charge_group) + y.bandwidth() / 2;
-  })
-  .attr("dy", "0.35em")
-  .attr("text-anchor", function(d) {
-    return d.change >= 0 ? "start" : "end";
-  })
-  .attr("fill", function(d) {
-    if (d.direction === "increase") return COLOR_ORANGE;
-    if (d.direction === "decrease") return COLOR_BLUE;
-    return COLOR_NEUTRAL;
-  })
-  .text(function(d) {
-    return formatChange(d.change);
-  });
+    row.append("text")
+      .attr("class", "change-label")
+      .attr("x", function(d) {
+        return x(d.change) + (d.change >= 0 ? 11 : -11);
+      })
+      .attr("y", function(d) {
+        return y(d.charge_group) + y.bandwidth() / 2;
+      })
+      .attr("dy", "0.35em")
+      .attr("text-anchor", function(d) {
+        return d.change >= 0 ? "start" : "end";
+      })
+      .attr("fill", function(d) {
+        if (d.direction === "increase") return COLOR_ORANGE;
+        if (d.direction === "decrease") return COLOR_BLUE;
+        return COLOR_NEUTRAL;
+      })
+      .text(function(d) {
+        return formatChange(d.change);
+      });
 
-row.append("text")
-  .attr("class", "small-label")
-  .attr("x", function(d) {
-    return x(d.change) + (d.change >= 0 ? 78 : -78);
-  })
-  .attr("y", function(d) {
-    return y(d.charge_group) + y.bandwidth() / 2;
-  })
-  .attr("dy", "0.35em")
-  .attr("text-anchor", function(d) {
-    return d.change >= 0 ? "start" : "end";
-  })
-  .text(function(d) {
-    return "(Trump: " + formatNumber(d.Trump) + ")";
-  });
+    row.append("text")
+      .attr("class", "small-label")
+      .attr("x", function(d) {
+        return x(d.change) + (d.change >= 0 ? 74 : -74);
+      })
+      .attr("y", function(d) {
+        return y(d.charge_group) + y.bandwidth() / 2;
+      })
+      .attr("dy", "0.35em")
+      .attr("text-anchor", function(d) {
+        return d.change >= 0 ? "start" : "end";
+      })
+      .text(function(d) {
+        return "(Trump: " + formatCount(d.Trump) + ")";
+      });
   }
 
   function loadCsv() {
-    d3.csv("admin_monthly_change.csv", function(d) {
+    d3.csv("charge_365_change.csv", function(d) {
       return {
         charge_group: d.charge_group,
-        Biden: d.Biden === "" ? NaN : Number(d.Biden),
-        Trump: d.Trump === "" ? NaN : Number(d.Trump),
+        "Biden final 365 days": d["Biden final 365 days"] === "" ? NaN : Number(d["Biden final 365 days"]),
+        "Trump first 365 days": d["Trump first 365 days"] === "" ? NaN : Number(d["Trump first 365 days"]),
         raw_change: d.raw_change === "" ? NaN : Number(d.raw_change),
         pct_change: d.pct_change === "" ? NaN : Number(d.pct_change),
         pct_change_label: d.pct_change_label
       };
     }).then(function(rows) {
-      render(rows);
+      renderOverall(rows);
+      renderChange(rows);
     }).catch(function(error) {
       console.error("CSV failed to load.", error);
-      d3.select("#chart").html(
-        "<p style='color:#b00020;font-weight:700;'>CSV failed to load. Check that admin_monthly_change.csv is in the same folder as index.html.</p>"
+      d3.select("#overall-chart").html(
+        "<p style='color:#b00020;font-weight:700;'>CSV failed to load. Check that charge_365_change.csv is in the same folder as index.html.</p>"
       );
     });
   }
