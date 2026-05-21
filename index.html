@@ -155,12 +155,14 @@
 
   function render(rows) {
     var data = rows
-      .filter(function(d) {
-        return d.app_month && !isNaN(d.lpr_arrests);
-      })
-      .sort(function(a, b) {
-        return d3.ascending(a.app_month, b.app_month);
-      });
+    .filter(function(d) {
+      return d.app_month &&
+        !isNaN(d.lpr_arrests) &&
+        d.lpr_arrests !== null;
+    })
+    .sort(function(a, b) {
+      return d3.ascending(a.app_month, b.app_month);
+    });
 
     var container = d3.select("#chart");
     container.selectAll("*").remove();
