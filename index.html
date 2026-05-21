@@ -1,151 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Average monthly arrests by charge group</title>
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
-
-<style>
-  body {
-    margin: 0;
-    font-family: Heebo, Arial, sans-serif;
-    color: #202020;
-    background: #ffffff;
-  }
-
-  .graphic-wrap {
-    max-width: 980px;
-    margin: 0 auto;
-    padding: 24px 16px 32px 16px;
-  }
-
-  .kicker {
-    color: #f26f21;
-    font-size: 13px;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-
-  h1 {
-    margin: 0 0 8px 0;
-    color: #103b63;
-    font-size: 36px;
-    line-height: 1.08;
-    font-weight: 800;
-  }
-
-  .dek {
-    max-width: 720px;
-    color: #666666;
-    font-size: 16px;
-    line-height: 1.45;
-    margin: 0 0 20px 0;
-  }
-
-  .chart-card {
-    border-top: 5px solid #f26f21;
-    background: #f7f7f4;
-    padding: 18px 16px 12px 16px;
-  }
-
-  svg {
-    display: block;
-    width: 100%;
-    height: auto;
-    overflow: visible;
-  }
-
-  .axis-label {
-    font-size: 12px;
-    font-weight: 700;
-    fill: #666666;
-  }
-
-  .category-label {
-    font-size: 13px;
-    font-weight: 700;
-    fill: #202020;
-  }
-
-  .change-label {
-    font-size: 13px;
-    font-weight: 800;
-  }
-
-  .small-label {
-    font-size: 11px;
-    font-weight: 600;
-    fill: #666666;
-  }
-
-  .zero-line {
-    stroke: #777777;
-    stroke-width: 1.25px;
-  }
-
-  .grid-line {
-    stroke: #d9d9d2;
-    stroke-width: 1px;
-  }
-
-  .change-line {
-    stroke-width: 5px;
-    stroke-linecap: round;
-  }
-
-  .dot {
-    stroke: #ffffff;
-    stroke-width: 2px;
-  }
-
-  .note {
-    margin-top: 14px;
-    color: #666666;
-    font-size: 13px;
-    line-height: 1.35;
-  }
-
-  @media screen and (max-width: 640px) {
-    h1 {
-      font-size: 28px;
-    }
-
-    .chart-card {
-      padding-left: 10px;
-      padding-right: 10px;
-    }
-
-    .category-label,
-    .change-label {
-      font-size: 12px;
-    }
-  }
-</style>
-</head>
-
-<body>
-<main class="graphic-wrap">
-  <div class="kicker">Charge groups</div>
-  <h1>How average monthly arrests changed by charge group</h1>
-  <p class="dek">
-    Average monthly arrests of people with prior convictions shifted after Jan. 20, 2025, with some charge categories rising and others declining.
-  </p>
-
-  <section class="chart-card">
-    <div id="chart"></div>
-    <p class="note">
-      Notes: Counts are average monthly unique arrestees. Each arrestee is assigned to one primary charge category per month. Change is calculated as the Trump-period monthly average minus the Biden-period monthly average.
-    </p>
-  </section>
-</main>
-
 <script>
 (function() {
   var COLOR_ORANGE = "#f26f21";
@@ -153,16 +5,6 @@
   var COLOR_NEUTRAL = "#777777";
   var COLOR_WHITE = "#ffffff";
   var COLOR_GRID = "#d9d9d2";
-
-  var sampleData = [
-    { charge_group: "Sex Crimes", Biden: 2.4, Trump: 1.6 },
-    { charge_group: "Drugs - Non-Marijuana", Biden: 3.1, Trump: 4.2 },
-    { charge_group: "Aggravated Assault and Homicide", Biden: 1.0, Trump: 0.7 },
-    { charge_group: "DUI", Biden: 1.4, Trump: 2.8 },
-    { charge_group: "Traffic Offense", Biden: 1.2, Trump: 2.3 },
-    { charge_group: "Marijuana", Biden: 0.9, Trump: 1.1 },
-    { charge_group: "Other", Biden: 8.1, Trump: 8.4 }
-  ];
 
   function formatNumber(value) {
     return d3.format(".1f")(value);
@@ -173,46 +15,37 @@
     return sign + formatNumber(value) + "/mo.";
   }
 
-  function cleanRows(rows) {
+  function prepareData(rows) {
     return rows
       .map(function(d) {
         var chargeGroup = d.charge_group ? String(d.charge_group).trim() : "";
         var biden = Number(d.Biden);
         var trump = Number(d.Trump);
+        var rawChange = Number(d.raw_change);
 
         return {
           charge_group: chargeGroup,
           Biden: biden,
           Trump: trump,
-          change: trump - biden,
-          abs_change: Math.abs(trump - biden)
+          change: rawChange,
+          abs_change: Math.abs(rawChange),
+          direction: rawChange > 0.05 ? "increase" :
+            rawChange < -0.05 ? "decrease" : "neutral"
         };
       })
       .filter(function(d) {
         return d.charge_group &&
           !isNaN(d.Biden) &&
-          !isNaN(d.Trump);
+          !isNaN(d.Trump) &&
+          !isNaN(d.change);
       })
       .sort(function(a, b) {
         return d3.descending(a.abs_change, b.abs_change);
       });
   }
 
-  function labelForMobile(label) {
-    if (label === "Aggravated Assault and Homicide") {
-      return "Agg. assault and homicide";
-    }
-
-    if (label === "Drugs - Non-Marijuana") {
-      return "Non-marijuana drugs";
-    }
-
-    return label;
-  }
-
   function render(rows) {
-    var chartData = cleanRows(rows);
-
+    var chartData = prepareData(rows);
     var container = d3.select("#chart");
     container.selectAll("*").remove();
 
@@ -220,13 +53,13 @@
     var isMobile = width < 640;
 
     var margin = {
-      top: 38,
-      right: isMobile ? 52 : 130,
-      bottom: 46,
-      left: isMobile ? 150 : 270
+      top: 36,
+      right: isMobile ? 46 : 104,
+      bottom: 42,
+      left: isMobile ? 150 : 260
     };
 
-    var rowHeight = isMobile ? 56 : 50;
+    var rowHeight = isMobile ? 54 : 48;
     var height = margin.top + margin.bottom + chartData.length * rowHeight;
     var innerWidth = width - margin.left - margin.right;
     var innerHeight = height - margin.top - margin.bottom;
@@ -240,7 +73,7 @@
     }
 
     var x = d3.scaleLinear()
-      .domain([-maxAbsChange * 1.2, maxAbsChange * 1.2])
+      .domain([-maxAbsChange * 1.15, maxAbsChange * 1.15])
       .range([0, innerWidth]);
 
     var y = d3.scaleBand()
@@ -275,7 +108,7 @@
       .attr("y1", -8)
       .attr("y2", innerHeight + 8);
 
-    g.selectAll("text.x-axis-label")
+    g.selectAll("text.axis-label")
       .data(ticks)
       .enter()
       .append("text")
@@ -304,7 +137,10 @@
       .attr("dy", "0.35em")
       .attr("text-anchor", "end")
       .text(function(d) {
-        return isMobile ? labelForMobile(d.charge_group) : d.charge_group;
+        if (isMobile && d.charge_group === "Aggravated Assault and Homicide") {
+          return "Agg. assault and homicide";
+        }
+        return d.charge_group;
       });
 
     var row = g.selectAll("g.row")
@@ -324,8 +160,8 @@
         return y(d.charge_group) + y.bandwidth() / 2;
       })
       .attr("stroke", function(d) {
-        if (d.change > 0.05) return COLOR_ORANGE;
-        if (d.change < -0.05) return COLOR_BLUE;
+        if (d.direction === "increase") return COLOR_ORANGE;
+        if (d.direction === "decrease") return COLOR_BLUE;
         return COLOR_NEUTRAL;
       });
 
@@ -337,8 +173,8 @@
       })
       .attr("r", 7)
       .attr("fill", function(d) {
-        if (d.change > 0.05) return COLOR_ORANGE;
-        if (d.change < -0.05) return COLOR_BLUE;
+        if (d.direction === "increase") return COLOR_ORANGE;
+        if (d.direction === "decrease") return COLOR_BLUE;
         return COLOR_NEUTRAL;
       })
       .attr("stroke", COLOR_WHITE);
@@ -356,8 +192,8 @@
         return d.change >= 0 ? "start" : "end";
       })
       .attr("fill", function(d) {
-        if (d.change > 0.05) return COLOR_ORANGE;
-        if (d.change < -0.05) return COLOR_BLUE;
+        if (d.direction === "increase") return COLOR_ORANGE;
+        if (d.direction === "decrease") return COLOR_BLUE;
         return COLOR_NEUTRAL;
       })
       .text(function(d) {
@@ -377,8 +213,8 @@
       });
   }
 
-  function loadCsvOrSample() {
-    d3.csv("admin_monthly_charge.csv", function(d) {
+  function loadCsv() {
+    d3.csv("admin_monthly_change.csv", function(d) {
       return {
         charge_group: d.charge_group,
         Biden: d.Biden === "" ? NaN : Number(d.Biden),
@@ -388,34 +224,21 @@
         pct_change_label: d.pct_change_label
       };
     }).then(function(rows) {
-      var usableRows = rows.filter(function(d) {
-        return d.charge_group &&
-          d.charge_group.trim() !== "" &&
-          !isNaN(d.Biden) &&
-          !isNaN(d.Trump);
-      });
-
-      if (usableRows.length > 0) {
-        render(usableRows);
-      } else {
-        render(sampleData);
-      }
+      render(rows);
     }).catch(function(error) {
-      console.error("CSV failed to load; using sample data.", error);
-      render(sampleData);
+      console.error("CSV failed to load.", error);
+      d3.select("#chart").html(
+        "<p style='color:#b00020;font-weight:700;'>CSV failed to load. Check that admin_monthly_change.csv is in the same folder as index.html.</p>"
+      );
     });
   }
 
-  loadCsvOrSample();
+  loadCsv();
 
   var resizeTimer;
   window.addEventListener("resize", function() {
     window.clearTimeout(resizeTimer);
-    resizeTimer = window.setTimeout(function() {
-      loadCsvOrSample();
-    }, 150);
+    resizeTimer = window.setTimeout(loadCsv, 150);
   });
 }());
 </script>
-</body>
-</html>
