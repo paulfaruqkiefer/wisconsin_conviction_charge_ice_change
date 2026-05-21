@@ -71,7 +71,7 @@
     display: block;
     width: 100%;
     height: auto;
-    overflow: visible;
+    overflow: hidden;
   }
 
   .axis-label {
@@ -255,7 +255,7 @@
     container.selectAll("*").remove();
 
     var width = container.node().clientWidth;
-    var isMobile = width < 700;
+    var isMobile = width < 760;
 
     var margin = {
       top: 14,
@@ -336,9 +336,9 @@
 
     var margin = {
       top: 36,
-      right: isMobile ? 32 : 124,
+      right: isMobile ? 12 : 124,
       bottom: 42,
-      left: isMobile ? 112 : 260
+      left: isMobile ? 90 : 260
     };
 
     var rowHeight = isMobile ? 54 : 48;
