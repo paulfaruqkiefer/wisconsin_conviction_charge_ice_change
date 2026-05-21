@@ -140,7 +140,7 @@
     color: #005eb8;
   }
 
-  @media screen and (max-width: 640px) {
+  @media screen and (max-width: 760px) {
     h1 {
       font-size: 28px;
     }
@@ -320,169 +320,191 @@
   }
 
   function renderChange(rows) {
-    var chartData = prepareData(rows);
-    var container = d3.select("#change-chart");
-    container.selectAll("*").remove();
+  var chartData = prepareData(rows);
+  var container = d3.select("#change-chart");
+  container.selectAll("*").remove();
 
-    if (!chartData.length) {
-      container.html(
-        "<p style='color:#b00020;font-weight:700;'>No usable rows found in charge_365_change.csv.</p>"
-      );
-      return;
-    }
+  if (!chartData.length) {
+    container.html(
+      "<p style='color:#b00020;font-weight:700;'>No usable rows found in charge_365_change.csv.</p>"
+    );
+    return;
+  }
 
-    var width = container.node().clientWidth;
-    var isMobile = width < 760;
+  var width = container.node().clientWidth;
+  var isMobile = width < 760;
 
-    var margin = {
-      top: 36,
-      right: isMobile ? 44 : 124,
-      bottom: 42,
-      left: isMobile ? 112 : 260
-    };
+  var margin = {
+    top: 36,
+    right: isMobile ? 28 : 124,
+    bottom: 42,
+    left: isMobile ? 12 : 260
+  };
 
-    var rowHeight = isMobile ? 54 : 48;
-    var height = margin.top + margin.bottom + chartData.length * rowHeight;
-    var innerWidth = width - margin.left - margin.right;
-    var innerHeight = height - margin.top - margin.bottom;
+  var rowHeight = isMobile ? 78 : 48;
+  var height = margin.top + margin.bottom + chartData.length * rowHeight;
+  var innerWidth = width - margin.left - margin.right;
+  var innerHeight = height - margin.top - margin.bottom;
 
-    var maxAbsChange = d3.max(chartData, function(d) {
-      return Math.abs(d.change);
+  var maxAbsChange = d3.max(chartData, function(d) {
+    return Math.abs(d.change);
+  });
+
+  if (!maxAbsChange || maxAbsChange < 1) {
+    maxAbsChange = 1;
+  }
+
+  var x = d3.scaleLinear()
+    .domain(isMobile ? [0, maxAbsChange * 1.25] : [-maxAbsChange * 1.15, maxAbsChange * 1.15])
+    .range([0, innerWidth]);
+
+  var y = d3.scaleBand()
+    .domain(chartData.map(function(d) { return d.charge_group; }))
+    .range([0, innerHeight])
+    .padding(isMobile ? 0.52 : 0.42);
+
+  var svg = container.append("svg")
+    .attr("viewBox", "0 0 " + width + " " + height)
+    .attr("role", "img")
+    .attr("aria-label", "Lollipop chart showing change in arrests by charge group.");
+
+  var g = svg.append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  var ticks = x.ticks(isMobile ? 3 : 5);
+
+  g.selectAll("line.grid-line")
+    .data(ticks)
+    .enter()
+    .append("line")
+    .attr("class", "grid-line")
+    .attr("x1", function(d) { return x(d); })
+    .attr("x2", function(d) { return x(d); })
+    .attr("y1", 0)
+    .attr("y2", innerHeight);
+
+  g.append("line")
+    .attr("class", "zero-line")
+    .attr("x1", x(0))
+    .attr("x2", x(0))
+    .attr("y1", -8)
+    .attr("y2", innerHeight + 8);
+
+  g.selectAll("text.axis-label")
+    .data(ticks)
+    .enter()
+    .append("text")
+    .attr("class", "axis-label")
+    .attr("x", function(d) { return x(d); })
+    .attr("y", innerHeight + 28)
+    .attr("text-anchor", "middle")
+    .text(function(d) { return formatCount(d); });
+
+  g.append("text")
+    .attr("class", "axis-label")
+    .attr("x", isMobile ? 0 : x(0))
+    .attr("y", -16)
+    .attr("text-anchor", isMobile ? "start" : "middle")
+    .text("Change in arrests");
+
+  var row = g.selectAll("g.row")
+    .data(chartData)
+    .enter()
+    .append("g")
+    .attr("class", "row");
+
+  row.append("text")
+    .attr("class", "category-label")
+    .attr("x", function() {
+      return isMobile ? 0 : -14;
+    })
+    .attr("y", function(d) {
+      return isMobile
+        ? y(d.charge_group) - 7
+        : y(d.charge_group) + y.bandwidth() / 2;
+    })
+    .attr("dy", isMobile ? "0em" : "0.35em")
+    .attr("text-anchor", function() {
+      return isMobile ? "start" : "end";
+    })
+    .text(function(d) {
+      if (isMobile && d.charge_group === "Aggravated Assault and Homicide") return "Aggravated assault and homicide";
+      if (isMobile && d.charge_group === "Drugs - Non-Marijuana") return "Non-marijuana drugs";
+      return d.charge_group;
     });
 
-    if (!maxAbsChange || maxAbsChange < 1) {
-      maxAbsChange = 1;
-    }
+  row.append("line")
+    .attr("class", "change-line")
+    .attr("x1", x(0))
+    .attr("x2", function(d) {
+      return x(isMobile ? Math.abs(d.change) : d.change);
+    })
+    .attr("y1", function(d) {
+      return y(d.charge_group) + y.bandwidth() / 2;
+    })
+    .attr("y2", function(d) {
+      return y(d.charge_group) + y.bandwidth() / 2;
+    })
+    .attr("stroke", function(d) {
+      if (d.direction === "increase") return COLOR_ORANGE;
+      if (d.direction === "decrease") return COLOR_BLUE;
+      return COLOR_NEUTRAL;
+    });
 
-    var x = d3.scaleLinear()
-      .domain(isMobile ? [0, maxAbsChange * 1.15] : [-maxAbsChange * 1.15, maxAbsChange * 1.15])
-      .range([0, innerWidth]);
+  row.append("circle")
+    .attr("class", "dot")
+    .attr("cx", function(d) {
+      return x(isMobile ? Math.abs(d.change) : d.change);
+    })
+    .attr("cy", function(d) {
+      return y(d.charge_group) + y.bandwidth() / 2;
+    })
+    .attr("r", 7)
+    .attr("fill", function(d) {
+      if (d.direction === "increase") return COLOR_ORANGE;
+      if (d.direction === "decrease") return COLOR_BLUE;
+      return COLOR_NEUTRAL;
+    })
+    .attr("stroke", COLOR_WHITE);
 
-    var y = d3.scaleBand()
-      .domain(chartData.map(function(d) { return d.charge_group; }))
-      .range([0, innerHeight])
-      .padding(0.42);
-
-    var svg = container.append("svg")
-      .attr("viewBox", "0 0 " + width + " " + height)
-      .attr("role", "img")
-      .attr("aria-label", "Lollipop chart showing change in arrests by charge group.");
-
-    var g = svg.append("g")
-      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-    var ticks = x.ticks(isMobile ? 3 : 5);
-
-    g.selectAll("line.grid-line")
-      .data(ticks)
-      .enter()
-      .append("line")
-      .attr("class", "grid-line")
-      .attr("x1", function(d) { return x(d); })
-      .attr("x2", function(d) { return x(d); })
-      .attr("y1", 0)
-      .attr("y2", innerHeight);
-
-    g.append("line")
-      .attr("class", "zero-line")
-      .attr("x1", x(0))
-      .attr("x2", x(0))
-      .attr("y1", -8)
-      .attr("y2", innerHeight + 8);
-
-    g.selectAll("text.axis-label")
-      .data(ticks)
-      .enter()
-      .append("text")
-      .attr("class", "axis-label")
-      .attr("x", function(d) { return x(d); })
-      .attr("y", innerHeight + 28)
-      .attr("text-anchor", "middle")
-      .text(function(d) { return formatCount(d); });
-
-    g.append("text")
-      .attr("class", "axis-label")
-      .attr("x", x(0))
-      .attr("y", -16)
-      .attr("text-anchor", "middle")
-      .text("Change in arrests");
-
-
-      g.selectAll("text.category-label")
-      .data(chartData)
-      .enter()
-      .append("text")
-      .attr("class", "category-label")
-      .attr("x", -14)
+  if (!isMobile) {
+    row.append("text")
+      .attr("class", "small-label")
+      .attr("x", x(0) - 12)
       .attr("y", function(d) {
         return y(d.charge_group) + y.bandwidth() / 2;
       })
       .attr("dy", "0.35em")
       .attr("text-anchor", "end")
       .text(function(d) {
-        if (isMobile && d.charge_group === "Aggravated Assault and Homicide") return "Agg. assault";
-        if (isMobile && d.charge_group === "Drugs - Non-Marijuana") return "Drugs";
-        if (isMobile && d.charge_group === "Weapons Offenses") return "Weapons";
-        if (isMobile && d.charge_group === "Traffic Offense") return "Traffic";
-        return d.charge_group;
+        return "(Biden: " + formatCount(d.Biden) + ")";
       });
+  }
 
-    var row = g.selectAll("g.row")
-      .data(chartData)
-      .enter()
-      .append("g")
-      .attr("class", "row");
+  row.append("text")
+    .attr("class", "change-label")
+    .attr("x", function(d) {
+      return x(isMobile ? Math.abs(d.change) : d.change) + 11;
+    })
+    .attr("y", function(d) {
+      return y(d.charge_group) + y.bandwidth() / 2;
+    })
+    .attr("dy", "0.35em")
+    .attr("text-anchor", "start")
+    .attr("fill", function(d) {
+      if (d.direction === "increase") return COLOR_ORANGE;
+      if (d.direction === "decrease") return COLOR_BLUE;
+      return COLOR_NEUTRAL;
+    })
+    .text(function(d) {
+      return formatChange(d.change);
+    });
 
-    row.append("line")
-      .attr("class", "change-line")
-      .attr("x1", x(0))
-      .attr("x2", function(d) { return x(Math.abs(d.change)); })
-      .attr("y1", function(d) {
-        return y(d.charge_group) + y.bandwidth() / 2;
-      })
-      .attr("y2", function(d) {
-        return y(d.charge_group) + y.bandwidth() / 2;
-      })
-      .attr("stroke", function(d) {
-        if (d.direction === "increase") return COLOR_ORANGE;
-        if (d.direction === "decrease") return COLOR_BLUE;
-        return COLOR_NEUTRAL;
-      });
-
-    row.append("circle")
-      .attr("class", "dot")
-      .attr("cx", function(d) {
-          return x(isMobile ? Math.abs(d.change) : d.change);
-        })
-      .attr("cy", function(d) {
-        return y(d.charge_group) + y.bandwidth() / 2;
-      })
-      .attr("r", 7)
-      .attr("fill", function(d) {
-        if (d.direction === "increase") return COLOR_ORANGE;
-        if (d.direction === "decrease") return COLOR_BLUE;
-        return COLOR_NEUTRAL;
-      })
-      .attr("stroke", COLOR_WHITE);
-
-    if (!isMobile) {
-      row.append("text")
-        .attr("class", "small-label")
-        .attr("x", x(0) - 12)
-        .attr("y", function(d) {
-          return y(d.charge_group) + y.bandwidth() / 2;
-        })
-        .attr("dy", "0.35em")
-        .attr("text-anchor", "end")
-        .text(function(d) {
-          return "(Biden: " + formatCount(d.Biden) + ")";
-        });
-    }
-
+  if (!isMobile) {
     row.append("text")
-      .attr("class", "change-label")
+      .attr("class", "small-label")
       .attr("x", function(d) {
-        return x(isMobile ? Math.abs(d.change) : d.change) + 11;
+        return x(d.change) + (d.change >= 0 ? 56 : -56);
       })
       .attr("y", function(d) {
         return y(d.charge_group) + y.bandwidth() / 2;
@@ -491,33 +513,11 @@
       .attr("text-anchor", function(d) {
         return d.change >= 0 ? "start" : "end";
       })
-      .attr("fill", function(d) {
-        if (d.direction === "increase") return COLOR_ORANGE;
-        if (d.direction === "decrease") return COLOR_BLUE;
-        return COLOR_NEUTRAL;
-      })
       .text(function(d) {
-        return formatChange(d.change);
+        return "(Trump: " + formatCount(d.Trump) + ")";
       });
-
-    if (!isMobile) {
-      row.append("text")
-        .attr("class", "small-label")
-        .attr("x", function(d) {
-          return x(d.change) + (d.change >= 0 ? 56 : -56);
-        })
-        .attr("y", function(d) {
-          return y(d.charge_group) + y.bandwidth() / 2;
-        })
-        .attr("dy", "0.35em")
-        .attr("text-anchor", function(d) {
-          return d.change >= 0 ? "start" : "end";
-        })
-        .text(function(d) {
-          return "(Trump: " + formatCount(d.Trump) + ")";
-        });
-    }
   }
+}
 
   function loadCsv() {
     d3.csv("charge_365_change.csv", function(d) {
@@ -532,6 +532,12 @@
     }).then(function(rows) {
       renderOverall(rows);
       renderChange(rows);
+
+    setTimeout(function() {
+        window.parent.postMessage({
+          frameHeight: document.documentElement.scrollHeight
+        }, "*");
+      }, 250);
     }).catch(function(error) {
       console.error("CSV failed to load.", error);
       d3.select("#overall-chart").html(
@@ -545,7 +551,14 @@
   var resizeTimer;
   window.addEventListener("resize", function() {
     window.clearTimeout(resizeTimer);
-    resizeTimer = window.setTimeout(loadCsv, 150);
+    resizeTimer = window.setTimeout(function() {
+        loadCsv();
+        setTimeout(function() {
+          window.parent.postMessage({
+            frameHeight: document.documentElement.scrollHeight
+          }, "*");
+        }, 250);
+      }, 150);
   });
 }());
 </script>
