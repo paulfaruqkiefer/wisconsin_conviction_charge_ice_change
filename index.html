@@ -377,25 +377,47 @@
     
   }
 
-  function loadCsvOrSample() {
-    d3.csv("admin_monthly_change.csv", function(d) {
-      return {
-        charge_group: d.charge_group,
-        administration: d.administration,
-        avg_monthly_arrests: Number(d.avg_monthly_arrests)
-      };
-    }).then(function(rows) {
-      if (rows && rows.length > 0) {
-        render(rows);
-      } else {
-        render(sampleData);
-      }
-    }).catch(function() {
-      render(sampleData);
-    });
-  }
+  function renderWide(rows) {
+  var longRows = [];
 
-  loadCsvOrSample();
+  rows.forEach(function(d) {
+    longRows.push({
+      charge_group: d.charge_group,
+      administration: "Biden",
+      avg_monthly_arrests: d.Biden
+    });
+
+    longRows.push({
+      charge_group: d.charge_group,
+      administration: "Trump",
+      avg_monthly_arrests: d.Trump
+    });
+  });
+
+  render(longRows);
+}
+
+
+  function loadCsvOrSample() {
+  d3.csv("admin_monthly_change.csv", function(d) {
+    return {
+      charge_group: d.charge_group,
+      Biden: Number(d.Biden),
+      Trump: Number(d.Trump),
+      change: Number(d.raw_change),
+      pct_change: Number(d.pct_change)
+    };
+  }).then(function(rows) {
+    if (rows && rows.length > 0) {
+      renderWide(rows);
+    } else {
+      render(sampleData);
+    }
+  }).catch(function() {
+    render(sampleData);
+  });
+}
+  
 
   var resizeTimer;
   window.addEventListener("resize", function() {
