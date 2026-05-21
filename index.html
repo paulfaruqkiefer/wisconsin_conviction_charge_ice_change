@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Monthly LPR arrests</title>
+<title>Average monthly arrests by charge group</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,6 +22,15 @@
     max-width: 980px;
     margin: 0 auto;
     padding: 24px 16px 32px 16px;
+  }
+
+  .kicker {
+    color: #f26f21;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
   }
 
   h1 {
@@ -59,10 +68,26 @@
     fill: #666666;
   }
 
-  .tick-label {
-    font-size: 12px;
+  .category-label {
+    font-size: 13px;
+    font-weight: 700;
+    fill: #202020;
+  }
+
+  .change-label {
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .small-label {
+    font-size: 11px;
     font-weight: 600;
     fill: #666666;
+  }
+
+  .zero-line {
+    stroke: #777777;
+    stroke-width: 1.25px;
   }
 
   .grid-line {
@@ -70,30 +95,14 @@
     stroke-width: 1px;
   }
 
-  .lpr-line {
-    fill: none;
-    stroke: #f26f21;
-    stroke-width: 4px;
+  .change-line {
+    stroke-width: 5px;
     stroke-linecap: round;
-    stroke-linejoin: round;
   }
 
   .dot {
-    fill: #005eb8;
     stroke: #ffffff;
     stroke-width: 2px;
-  }
-
-  .inauguration-line {
-    stroke: #777777;
-    stroke-width: 1.5px;
-    stroke-dasharray: 4 4;
-  }
-
-  .inauguration-label {
-    font-size: 12px;
-    font-weight: 700;
-    fill: #666666;
   }
 
   .note {
@@ -112,21 +121,27 @@
       padding-left: 10px;
       padding-right: 10px;
     }
+
+    .category-label,
+    .change-label {
+      font-size: 12px;
+    }
   }
 </style>
 </head>
 
 <body>
 <main class="graphic-wrap">
-  <h1>Monthly arrests of lawful permanent residents</h1>
+  <div class="kicker">Charge groups</div>
+  <h1>How average monthly arrests changed by charge group</h1>
   <p class="dek">
-    Monthly counts show deduplicated arrests of lawful permanent residents in the data.
+    Average monthly arrests of people with prior convictions shifted after Jan. 20, 2025, with some charge categories rising and others declining.
   </p>
 
   <section class="chart-card">
     <div id="chart"></div>
     <p class="note">
-      Notes: Counts are deduplicated by anonymized identifier within each month. Dashed line marks Jan. 20, 2025.
+      Notes: Counts are average monthly unique arrestees. Each arrestee is assigned to one primary charge category per month. Change is calculated as the Trump-period monthly average minus the Biden-period monthly average.
     </p>
   </section>
 </main>
@@ -135,34 +150,68 @@
 (function() {
   var COLOR_ORANGE = "#f26f21";
   var COLOR_BLUE = "#005eb8";
-  var COLOR_GRID = "#d9d9d2";
   var COLOR_NEUTRAL = "#777777";
-
-  var parseDate = d3.timeParse("%Y-%m-%d");
-  var inaugurationDate = new Date(2025, 0, 20);
+  var COLOR_WHITE = "#ffffff";
+  var COLOR_GRID = "#d9d9d2";
 
   var sampleData = [
-    { app_month: parseDate("2024-07-01"), lpr_arrests: 4 },
-    { app_month: parseDate("2024-08-01"), lpr_arrests: 6 },
-    { app_month: parseDate("2024-09-01"), lpr_arrests: 5 },
-    { app_month: parseDate("2024-10-01"), lpr_arrests: 7 },
-    { app_month: parseDate("2024-11-01"), lpr_arrests: 6 },
-    { app_month: parseDate("2024-12-01"), lpr_arrests: 8 },
-    { app_month: parseDate("2025-01-01"), lpr_arrests: 9 },
-    { app_month: parseDate("2025-02-01"), lpr_arrests: 14 },
-    { app_month: parseDate("2025-03-01"), lpr_arrests: 16 }
+    { charge_group: "Sex Crimes", Biden: 2.4, Trump: 1.6 },
+    { charge_group: "Drugs - Non-Marijuana", Biden: 3.1, Trump: 4.2 },
+    { charge_group: "Aggravated Assault and Homicide", Biden: 1.0, Trump: 0.7 },
+    { charge_group: "DUI", Biden: 1.4, Trump: 2.8 },
+    { charge_group: "Traffic Offense", Biden: 1.2, Trump: 2.3 },
+    { charge_group: "Marijuana", Biden: 0.9, Trump: 1.1 },
+    { charge_group: "Other", Biden: 8.1, Trump: 8.4 }
   ];
 
+  function formatNumber(value) {
+    return d3.format(".1f")(value);
+  }
+
+  function formatChange(value) {
+    var sign = value > 0 ? "+" : "";
+    return sign + formatNumber(value) + "/mo.";
+  }
+
+  function cleanRows(rows) {
+    return rows
+      .map(function(d) {
+        var chargeGroup = d.charge_group ? String(d.charge_group).trim() : "";
+        var biden = Number(d.Biden);
+        var trump = Number(d.Trump);
+
+        return {
+          charge_group: chargeGroup,
+          Biden: biden,
+          Trump: trump,
+          change: trump - biden,
+          abs_change: Math.abs(trump - biden)
+        };
+      })
+      .filter(function(d) {
+        return d.charge_group &&
+          !isNaN(d.Biden) &&
+          !isNaN(d.Trump);
+      })
+      .sort(function(a, b) {
+        return d3.descending(a.abs_change, b.abs_change);
+      });
+  }
+
+  function labelForMobile(label) {
+    if (label === "Aggravated Assault and Homicide") {
+      return "Agg. assault and homicide";
+    }
+
+    if (label === "Drugs - Non-Marijuana") {
+      return "Non-marijuana drugs";
+    }
+
+    return label;
+  }
+
   function render(rows) {
-    var data = rows
-    .filter(function(d) {
-      return d.app_month &&
-        !isNaN(d.lpr_arrests) &&
-        d.lpr_arrests !== null;
-    })
-    .sort(function(a, b) {
-      return d3.ascending(a.app_month, b.app_month);
-    });
+    var chartData = cleanRows(rows);
 
     var container = d3.select("#chart");
     container.selectAll("*").remove();
@@ -171,131 +220,188 @@
     var isMobile = width < 640;
 
     var margin = {
-      top: 34,
-      right: isMobile ? 20 : 32,
-      bottom: 54,
-      left: isMobile ? 46 : 62
+      top: 38,
+      right: isMobile ? 52 : 130,
+      bottom: 46,
+      left: isMobile ? 150 : 270
     };
 
-    var height = isMobile ? 360 : 430;
+    var rowHeight = isMobile ? 56 : 50;
+    var height = margin.top + margin.bottom + chartData.length * rowHeight;
     var innerWidth = width - margin.left - margin.right;
     var innerHeight = height - margin.top - margin.bottom;
 
-    var x = d3.scaleTime()
-      .domain(d3.extent(data, function(d) { return d.app_month; }))
+    var maxAbsChange = d3.max(chartData, function(d) {
+      return Math.abs(d.change);
+    });
+
+    if (!maxAbsChange || maxAbsChange < 1) {
+      maxAbsChange = 1;
+    }
+
+    var x = d3.scaleLinear()
+      .domain([-maxAbsChange * 1.2, maxAbsChange * 1.2])
       .range([0, innerWidth]);
 
-    var yMax = d3.max(data, function(d) { return d.lpr_arrests; }) || 1;
-
-    var y = d3.scaleLinear()
-      .domain([0, yMax * 1.15])
-      .nice()
-      .range([innerHeight, 0]);
+    var y = d3.scaleBand()
+      .domain(chartData.map(function(d) { return d.charge_group; }))
+      .range([0, innerHeight])
+      .padding(0.42);
 
     var svg = container.append("svg")
       .attr("viewBox", "0 0 " + width + " " + height)
       .attr("role", "img")
-      .attr("aria-label", "Line chart showing monthly arrests of lawful permanent residents.");
+      .attr("aria-label", "Lollipop chart showing change in average monthly arrests by charge group.");
 
     var g = svg.append("g")
       .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-    var yTicks = y.ticks(isMobile ? 4 : 5);
+    var ticks = x.ticks(isMobile ? 3 : 5);
 
     g.selectAll("line.grid-line")
-      .data(yTicks)
+      .data(ticks)
       .enter()
       .append("line")
       .attr("class", "grid-line")
-      .attr("x1", 0)
-      .attr("x2", innerWidth)
-      .attr("y1", function(d) { return y(d); })
-      .attr("y2", function(d) { return y(d); })
-      .attr("stroke", COLOR_GRID);
+      .attr("x1", function(d) { return x(d); })
+      .attr("x2", function(d) { return x(d); })
+      .attr("y1", 0)
+      .attr("y2", innerHeight);
 
-    g.selectAll("text.y-tick")
-      .data(yTicks)
+    g.append("line")
+      .attr("class", "zero-line")
+      .attr("x1", x(0))
+      .attr("x2", x(0))
+      .attr("y1", -8)
+      .attr("y2", innerHeight + 8);
+
+    g.selectAll("text.x-axis-label")
+      .data(ticks)
       .enter()
       .append("text")
-      .attr("class", "tick-label")
-      .attr("x", -10)
-      .attr("y", function(d) { return y(d); })
-      .attr("dy", "0.35em")
-      .attr("text-anchor", "end")
-      .text(function(d) { return d3.format(",")(d); });
-
-    var xTicks = x.ticks(d3.timeMonth.every(isMobile ? 3 : 2));
-
-    g.selectAll("text.x-tick")
-      .data(xTicks)
-      .enter()
-      .append("text")
-      .attr("class", "tick-label")
+      .attr("class", "axis-label")
       .attr("x", function(d) { return x(d); })
-      .attr("y", innerHeight + 26)
+      .attr("y", innerHeight + 28)
       .attr("text-anchor", "middle")
-      .text(function(d) { return d3.timeFormat("%b %Y")(d); });
+      .text(function(d) { return formatNumber(d); });
 
     g.append("text")
       .attr("class", "axis-label")
-      .attr("x", -margin.left + 4)
-      .attr("y", -14)
-      .attr("text-anchor", "start")
-      .text("LPR arrests");
+      .attr("x", x(0))
+      .attr("y", -16)
+      .attr("text-anchor", "middle")
+      .text("Change in average monthly arrests");
 
-    var line = d3.line()
-      .x(function(d) { return x(d.app_month); })
-      .y(function(d) { return y(d.lpr_arrests); })
-      .curve(d3.curveMonotoneX);
-
-    g.append("path")
-      .datum(data)
-      .attr("class", "lpr-line")
-      .attr("d", line)
-      .attr("stroke", COLOR_ORANGE);
-
-    g.selectAll("circle.dot")
-      .data(data)
+    g.selectAll("text.category-label")
+      .data(chartData)
       .enter()
-      .append("circle")
+      .append("text")
+      .attr("class", "category-label")
+      .attr("x", -14)
+      .attr("y", function(d) {
+        return y(d.charge_group) + y.bandwidth() / 2;
+      })
+      .attr("dy", "0.35em")
+      .attr("text-anchor", "end")
+      .text(function(d) {
+        return isMobile ? labelForMobile(d.charge_group) : d.charge_group;
+      });
+
+    var row = g.selectAll("g.row")
+      .data(chartData)
+      .enter()
+      .append("g")
+      .attr("class", "row");
+
+    row.append("line")
+      .attr("class", "change-line")
+      .attr("x1", x(0))
+      .attr("x2", function(d) { return x(d.change); })
+      .attr("y1", function(d) {
+        return y(d.charge_group) + y.bandwidth() / 2;
+      })
+      .attr("y2", function(d) {
+        return y(d.charge_group) + y.bandwidth() / 2;
+      })
+      .attr("stroke", function(d) {
+        if (d.change > 0.05) return COLOR_ORANGE;
+        if (d.change < -0.05) return COLOR_BLUE;
+        return COLOR_NEUTRAL;
+      });
+
+    row.append("circle")
       .attr("class", "dot")
-      .attr("cx", function(d) { return x(d.app_month); })
-      .attr("cy", function(d) { return y(d.lpr_arrests); })
-      .attr("r", isMobile ? 4 : 5)
-      .attr("fill", COLOR_BLUE);
+      .attr("cx", function(d) { return x(d.change); })
+      .attr("cy", function(d) {
+        return y(d.charge_group) + y.bandwidth() / 2;
+      })
+      .attr("r", 7)
+      .attr("fill", function(d) {
+        if (d.change > 0.05) return COLOR_ORANGE;
+        if (d.change < -0.05) return COLOR_BLUE;
+        return COLOR_NEUTRAL;
+      })
+      .attr("stroke", COLOR_WHITE);
 
-    if (inaugurationDate >= x.domain()[0] && inaugurationDate <= x.domain()[1]) {
-      g.append("line")
-        .attr("class", "inauguration-line")
-        .attr("x1", x(inaugurationDate))
-        .attr("x2", x(inaugurationDate))
-        .attr("y1", 0)
-        .attr("y2", innerHeight)
-        .attr("stroke", COLOR_NEUTRAL);
+    row.append("text")
+      .attr("class", "change-label")
+      .attr("x", function(d) {
+        return x(d.change) + (d.change >= 0 ? 11 : -11);
+      })
+      .attr("y", function(d) {
+        return y(d.charge_group) + y.bandwidth() / 2;
+      })
+      .attr("dy", "0.35em")
+      .attr("text-anchor", function(d) {
+        return d.change >= 0 ? "start" : "end";
+      })
+      .attr("fill", function(d) {
+        if (d.change > 0.05) return COLOR_ORANGE;
+        if (d.change < -0.05) return COLOR_BLUE;
+        return COLOR_NEUTRAL;
+      })
+      .text(function(d) {
+        return formatChange(d.change) + " (Trump: " + formatNumber(d.Trump) + ")";
+      });
 
-      g.append("text")
-        .attr("class", "inauguration-label")
-        .attr("x", x(inaugurationDate) + 6)
-        .attr("y", 12)
-        .attr("text-anchor", "start")
-        .text("Jan. 20, 2025");
-    }
+    row.append("text")
+      .attr("class", "small-label")
+      .attr("x", x(0) - 12)
+      .attr("y", function(d) {
+        return y(d.charge_group) + y.bandwidth() / 2;
+      })
+      .attr("dy", "0.35em")
+      .attr("text-anchor", "end")
+      .text(function(d) {
+        return "Biden: " + formatNumber(d.Biden);
+      });
   }
 
   function loadCsvOrSample() {
-    d3.csv("monthly_lpr_arrests_deduped.csv", function(d) {
+    d3.csv("admin_monthly_charge.csv", function(d) {
       return {
-        administration: d.administration,
-        app_month: parseDate(d.app_month),
-        lpr_arrests: Number(d.lpr_arrests)
+        charge_group: d.charge_group,
+        Biden: d.Biden === "" ? NaN : Number(d.Biden),
+        Trump: d.Trump === "" ? NaN : Number(d.Trump),
+        raw_change: d.raw_change === "" ? NaN : Number(d.raw_change),
+        pct_change: d.pct_change === "" ? NaN : Number(d.pct_change),
+        pct_change_label: d.pct_change_label
       };
     }).then(function(rows) {
-      if (rows && rows.length > 0) {
-        render(rows);
+      var usableRows = rows.filter(function(d) {
+        return d.charge_group &&
+          d.charge_group.trim() !== "" &&
+          !isNaN(d.Biden) &&
+          !isNaN(d.Trump);
+      });
+
+      if (usableRows.length > 0) {
+        render(usableRows);
       } else {
         render(sampleData);
       }
-    }).catch(function() {
+    }).catch(function(error) {
+      console.error("CSV failed to load; using sample data.", error);
       render(sampleData);
     });
   }
@@ -305,7 +411,9 @@
   var resizeTimer;
   window.addEventListener("resize", function() {
     window.clearTimeout(resizeTimer);
-    resizeTimer = window.setTimeout(loadCsvOrSample, 150);
+    resizeTimer = window.setTimeout(function() {
+      loadCsvOrSample();
+    }, 150);
   });
 }());
 </script>
