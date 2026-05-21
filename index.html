@@ -407,24 +407,25 @@
       .attr("text-anchor", "middle")
       .text("Change in arrests");
 
-    .text(function(d) {
-  if (isMobile && d.charge_group === "Aggravated Assault and Homicide") {
-    return "Agg. assault";
-  }
-  if (isMobile && d.charge_group === "Drugs - Non-Marijuana") {
-    return "Drugs";
-  }
-  if (isMobile && d.charge_group === "Weapons Offenses") {
-    return "Weapons";
-  }
-  if (isMobile && d.charge_group === "Traffic Offense") {
-    return "Traffic";
-  }
-  if (isMobile && d.charge_group === "Driving Under Influence Liquor") {
-    return "DUI";
-  }
-  return d.charge_group;
-});
+
+      g.selectAll("text.category-label")
+      .data(chartData)
+      .enter()
+      .append("text")
+      .attr("class", "category-label")
+      .attr("x", -14)
+      .attr("y", function(d) {
+        return y(d.charge_group) + y.bandwidth() / 2;
+      })
+      .attr("dy", "0.35em")
+      .attr("text-anchor", "end")
+      .text(function(d) {
+        if (isMobile && d.charge_group === "Aggravated Assault and Homicide") return "Agg. assault";
+        if (isMobile && d.charge_group === "Drugs - Non-Marijuana") return "Drugs";
+        if (isMobile && d.charge_group === "Weapons Offenses") return "Weapons";
+        if (isMobile && d.charge_group === "Traffic Offense") return "Traffic";
+        return d.charge_group;
+      });
 
     var row = g.selectAll("g.row")
       .data(chartData)
@@ -463,57 +464,58 @@
       .attr("stroke", COLOR_WHITE);
 
     if (!isMobile) {
-  row.append("text")
-    .attr("class", "small-label")
-    .attr("x", x(0) - 12)
-    .attr("y", function(d) {
-      return y(d.charge_group) + y.bandwidth() / 2;
-    })
-    .attr("dy", "0.35em")
-    .attr("text-anchor", "end")
-    .text(function(d) {
-      return "(Biden: " + formatCount(d.Biden) + ")";
-    });
-}
+      row.append("text")
+        .attr("class", "small-label")
+        .attr("x", x(0) - 12)
+        .attr("y", function(d) {
+          return y(d.charge_group) + y.bandwidth() / 2;
+        })
+        .attr("dy", "0.35em")
+        .attr("text-anchor", "end")
+        .text(function(d) {
+          return "(Biden: " + formatCount(d.Biden) + ")";
+        });
+    }
 
-row.append("text")
-  .attr("class", "change-label")
-  .attr("x", function(d) {
-    return x(d.change) + (d.change >= 0 ? 11 : -11);
-  })
-  .attr("y", function(d) {
-    return y(d.charge_group) + y.bandwidth() / 2;
-  })
-  .attr("dy", "0.35em")
-  .attr("text-anchor", function(d) {
-    return d.change >= 0 ? "start" : "end";
-  })
-  .attr("fill", function(d) {
-    if (d.direction === "increase") return COLOR_ORANGE;
-    if (d.direction === "decrease") return COLOR_BLUE;
-    return COLOR_NEUTRAL;
-  })
-  .text(function(d) {
-    return formatChange(d.change);
-  });
+    row.append("text")
+      .attr("class", "change-label")
+      .attr("x", function(d) {
+        return x(d.change) + (d.change >= 0 ? 11 : -11);
+      })
+      .attr("y", function(d) {
+        return y(d.charge_group) + y.bandwidth() / 2;
+      })
+      .attr("dy", "0.35em")
+      .attr("text-anchor", function(d) {
+        return d.change >= 0 ? "start" : "end";
+      })
+      .attr("fill", function(d) {
+        if (d.direction === "increase") return COLOR_ORANGE;
+        if (d.direction === "decrease") return COLOR_BLUE;
+        return COLOR_NEUTRAL;
+      })
+      .text(function(d) {
+        return formatChange(d.change);
+      });
 
-if (!isMobile) {
-  row.append("text")
-    .attr("class", "small-label")
-    .attr("x", function(d) {
-      return x(d.change) + (d.change >= 0 ? 56 : -56);
-    })
-    .attr("y", function(d) {
-      return y(d.charge_group) + y.bandwidth() / 2;
-    })
-    .attr("dy", "0.35em")
-    .attr("text-anchor", function(d) {
-      return d.change >= 0 ? "start" : "end";
-    })
-    .text(function(d) {
-      return "(Trump: " + formatCount(d.Trump) + ")";
-    });
-}
+    if (!isMobile) {
+      row.append("text")
+        .attr("class", "small-label")
+        .attr("x", function(d) {
+          return x(d.change) + (d.change >= 0 ? 56 : -56);
+        })
+        .attr("y", function(d) {
+          return y(d.charge_group) + y.bandwidth() / 2;
+        })
+        .attr("dy", "0.35em")
+        .attr("text-anchor", function(d) {
+          return d.change >= 0 ? "start" : "end";
+        })
+        .text(function(d) {
+          return "(Trump: " + formatCount(d.Trump) + ")";
+        });
+    }
+  }
 
   function loadCsv() {
     d3.csv("charge_365_change.csv", function(d) {
