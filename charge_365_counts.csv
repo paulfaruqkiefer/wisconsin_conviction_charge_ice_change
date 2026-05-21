@@ -1,0 +1,17 @@
+comparison_period,charge_group,arrests,pct,pct_label
+Biden final 365 days,Aggravated Assault and Homicide,21,0.06422018348623854,6.4%
+Biden final 365 days,Sex Crimes,44,0.1345565749235474,13.5%
+Biden final 365 days,Weapons Offenses,11,0.03363914373088685,3.4%
+Biden final 365 days,Drugs - Non-Marijuana,77,0.23547400611620795,23.5%
+Biden final 365 days,DUI,21,0.06422018348623854,6.4%
+Biden final 365 days,Traffic Offense,19,0.0581039755351682,5.8%
+Biden final 365 days,Marijuana,5,0.01529051987767584,1.5%
+Biden final 365 days,Other,129,0.3944954128440367,39.4%
+Trump first 365 days,Aggravated Assault and Homicide,24,0.03545051698670606,3.5%
+Trump first 365 days,Sex Crimes,64,0.09453471196454949,9.5%
+Trump first 365 days,Weapons Offenses,15,0.022156573116691284,2.2%
+Trump first 365 days,Drugs - Non-Marijuana,105,0.155096011816839,15.5%
+Trump first 365 days,DUI,100,0.14771048744460857,14.8%
+Trump first 365 days,Traffic Offense,82,0.12112259970457903,12.1%
+Trump first 365 days,Marijuana,15,0.022156573116691284,2.2%
+Trump first 365 days,Other,272,0.4017725258493353,40.2%
