@@ -341,7 +341,7 @@
     left: isMobile ? 12 : 260
   };
 
-  var rowHeight = isMobile ? 78 : 48;
+  var rowHeight = isMobile ? 58 : 48;
   var height = margin.top + margin.bottom + chartData.length * rowHeight;
   var innerWidth = width - margin.left - margin.right;
   var innerHeight = height - margin.top - margin.bottom;
@@ -361,7 +361,7 @@
   var y = d3.scaleBand()
     .domain(chartData.map(function(d) { return d.charge_group; }))
     .range([0, innerHeight])
-    .padding(isMobile ? 0.52 : 0.42);
+    .padding(isMobile ? 0.35 : 0.42);
 
   var svg = container.append("svg")
     .attr("viewBox", "0 0 " + width + " " + height)
